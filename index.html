@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Grip Strength & Hand Rehab Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
+  <div class="max-w-2xl mx-auto">
+    <header class="text-center mb-8">
+      <h1 class="text-3xl font-bold text-indigo-800 mb-2">Grip Strength Tracker</h1>
+      <p class="text-indigo-600">Hand Rehab Exercise Log & Progress Monitor</p>
+    </header>
+
+    <div class="bg-white rounded-2xl shadow-lg p-6 mb-6">
+      <h2 class="text-lg font-semibold text-gray-700 mb-4">Log Measurement</h2>
+      <div class="grid grid-cols-2 gap-4 mb-4">
+        <div>
+          <label for="left-grip" class="block text-sm font-medium text-gray-600 mb-1">Left Hand (kg)</label>
+          <input type="number" id="left-grip" min="0" max="150" step="0.5" placeholder="e.g. 32.5"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400" aria-label="Left hand grip strength in kilograms" />
+        </div>
+        <div>
+          <label for="right-grip" class="block text-sm font-medium text-gray-600 mb-1">Right Hand (kg)</label>
+          <input type="number" id="right-grip" min="0" max="150" step="0.5" placeholder="e.g. 35.0"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400" aria-label="Right hand grip strength in kilograms" />
+        </div>
+        <div>
+          <label for="age" class="block text-sm font-medium text-gray-600 mb-1">Age</label>
+          <input type="number" id="age" min="5" max="100" placeholder="e.g. 40"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400" aria-label="Age in years" />
+        </div>
+        <div>
+          <label for="sex" class="block text-sm font-medium text-gray-600 mb-1">Sex</label>
+          <select id="sex" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400" aria-label="Sex">
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+        </div>
+      </div>
+      <button id="log-btn" class="w-full bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700 transition">Log Measurement</button>
+    </div>
+
+    <div id="analysis" class="hidden bg-white rounded-2xl shadow-lg p-6 mb-6">
+      <h2 class="text-lg font-semibold text-gray-700 mb-3">Current Assessment</h2>
+      <div id="analysis-content" class="space-y-3"></div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-lg p-6 mb-6">
+      <h2 class="text-lg font-semibold text-gray-700 mb-3">Rehab Exercise Sets</h2>
+      <div class="grid grid-cols-3 gap-3 mb-4">
+        <div class="text-center p-3 bg-indigo-50 rounded-lg">
+          <p class="text-xs text-gray-500 mb-1">Squeeze Sets</p>
+          <p id="squeeze-count" class="text-2xl font-bold text-indigo-700">0</p>
+          <button onclick="increment('squeeze')" class="mt-1 text-xs bg-indigo-600 text-white px-3 py-1 rounded hover:bg-indigo-700">+1 Set</button>
+        </div>
+        <div class="text-center p-3 bg-green-50 rounded-lg">
+          <p class="text-xs text-gray-500 mb-1">Extension Sets</p>
+          <p id="extension-count" class="text-2xl font-bold text-green-700">0</p>
+          <button onclick="increment('extension')" class="mt-1 text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">+1 Set</button>
+        </div>
+        <div class="text-center p-3 bg-orange-50 rounded-lg">
+          <p class="text-xs text-gray-500 mb-1">Pinch Sets</p>
+          <p id="pinch-count" class="text-2xl font-bold text-orange-700">0</p>
+          <button onclick="increment('pinch')" class="mt-1 text-xs bg-orange-600 text-white px-3 py-1 rounded hover:bg-orange-700">+1 Set</button>
+        </div>
+      </div>
+      <button id="reset-sets" class="text-sm text-gray-500 hover:text-gray-700 underline">Reset today's sets</button>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-lg p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-semibold text-gray-700">History</h2>
+        <button id="clear-history" class="text-sm text-red-500 hover:text-red-700">Clear All</button>
+      </div>
+      <div id="history-list" class="space-y-2 max-h-64 overflow-y-auto"></div>
+      <p id="no-history" class="text-gray-400 text-sm text-center py-4">No measurements yet. Log your first reading above.</p>
+    </div>
+  </div>
+
+  <script>
+    function escapeHtml(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+
+    const NORMS = {
+      male:   [[20,46],[30,44],[40,41],[50,37],[60,32],[70,27]],
+      female: [[20,29],[30,28],[40,26],[50,23],[60,20],[70,17]]
+    };
+
+    function getNorm(sex, age) {
+      const norms = NORMS[sex];
+      for (let i = norms.length - 1; i >= 0; i--) {
+        if (age >= norms[i][0]) return norms[i][1];
+      }
+      return norms[0][1];
+    }
+
+    function loadData() {
+      return JSON.parse(localStorage.getItem('gripData') || '{"history":[],"sets":{"squeeze":0,"extension":0,"pinch":0}}');
+    }
+    function saveData(d) { localStorage.setItem('gripData', JSON.stringify(d)); }
+
+    function increment(type) {
+      const d = loadData();
+      d.sets[type] = (d.sets[type] || 0) + 1;
+      saveData(d);
+      document.getElementById(type + '-count').textContent = d.sets[type];
+    }
+
+    function renderHistory() {
+      const d = loadData();
+      const el = document.getElementById('history-list');
+      const none = document.getElementById('no-history');
+      if (!d.history.length) { el.innerHTML = ''; none.classList.remove('hidden'); return; }
+      none.classList.add('hidden');
+      el.innerHTML = d.history.slice().reverse().map(h => `
+        <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg text-sm">
+          <span class="text-gray-500">${escapeHtml(h.date)}</span>
+          <span>L: <strong>${escapeHtml(String(h.left))}kg</strong></span>
+          <span>R: <strong>${escapeHtml(String(h.right))}kg</strong></span>
+          <span class="${h.balance < 0.9 ? 'text-red-500' : 'text-green-600'} font-medium">Balance ${escapeHtml(String(Math.round(h.balance*100)))}%</span>
+        </div>
+      `).join('');
+    }
+
+    function renderSets() {
+      const d = loadData();
+      ['squeeze','extension','pinch'].forEach(t => {
+        document.getElementById(t + '-count').textContent = d.sets[t] || 0;
+      });
+    }
+
+    document.getElementById('log-btn').addEventListener('click', () => {
+      const left = parseFloat(document.getElementById('left-grip').value);
+      const right = parseFloat(document.getElementById('right-grip').value);
+      const age = parseInt(document.getElementById('age').value) || 40;
+      const sex = document.getElementById('sex').value;
+      if (isNaN(left) || isNaN(right) || left <= 0 || right <= 0) {
+        alert('Please enter valid grip strength values for both hands.');
+        return;
+      }
+      const norm = getNorm(sex, age);
+      const avg = (left + right) / 2;
+      const balance = Math.min(left, right) / Math.max(left, right);
+      const pct = Math.round(avg / norm * 100);
+      const d = loadData();
+      d.history.push({ date: new Date().toLocaleDateString(), left, right, balance, norm, pct });
+      saveData(d);
+
+      const analysis = document.getElementById('analysis');
+      const content = document.getElementById('analysis-content');
+      analysis.classList.remove('hidden');
+      content.innerHTML = `
+        <div class="grid grid-cols-2 gap-3">
+          <div class="p-3 bg-indigo-50 rounded-lg text-center">
+            <p class="text-xs text-gray-500">Average Grip</p>
+            <p class="text-2xl font-bold text-indigo-700">${escapeHtml(String(avg.toFixed(1)))} kg</p>
+          </div>
+          <div class="p-3 ${pct >= 90 ? 'bg-green-50' : pct >= 70 ? 'bg-yellow-50' : 'bg-red-50'} rounded-lg text-center">
+            <p class="text-xs text-gray-500">vs. Norm (${escapeHtml(String(norm))}kg)</p>
+            <p class="text-2xl font-bold ${pct >= 90 ? 'text-green-700' : pct >= 70 ? 'text-yellow-700' : 'text-red-700'}">${escapeHtml(String(pct))}%</p>
+          </div>
+          <div class="p-3 ${balance >= 0.9 ? 'bg-green-50' : 'bg-orange-50'} rounded-lg text-center col-span-2">
+            <p class="text-xs text-gray-500">L/R Balance</p>
+            <p class="text-xl font-bold ${balance >= 0.9 ? 'text-green-700' : 'text-orange-700'}">${escapeHtml(String(Math.round(balance*100)))}% ${balance >= 0.9 ? '✓ Balanced' : '⚠ Imbalance detected'}</p>
+          </div>
+        </div>
+      `;
+      renderHistory();
+    });
+
+    document.getElementById('reset-sets').addEventListener('click', () => {
+      const d = loadData();
+      d.sets = { squeeze: 0, extension: 0, pinch: 0 };
+      saveData(d);
+      renderSets();
+    });
+
+    document.getElementById('clear-history').addEventListener('click', () => {
+      if (!confirm('Clear all history?')) return;
+      const d = loadData();
+      d.history = [];
+      saveData(d);
+      renderHistory();
+    });
+
+    renderHistory();
+    renderSets();
+  </script>
+</body>
+</html>
